@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#3b82f6">
+  <meta name="description" content="シンプルなタイムボックス計測アプリ v2">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="タイムボックス Pro">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+  <title>タイムボックス Pro</title>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>タイムボックス v2</h1>
+      <button id="clearButton" class="clear-button">全クリア</button>
+    </header>
+    
+    <!-- タブナビゲーション -->
+    <div class="tab-navigation">
+      <button id="listTab" class="tab-button active">リスト</button>
+      <button id="timelineTab" class="tab-button">タイムライン</button>
+    </div>
+    
+    <!-- リスト表示画面 -->
+    <div id="listView" class="view-container">
+      <div class="search-container">
+        <input type="text" id="searchInput" placeholder="検索窓" class="search-input">
+      </div>
+      
+      <div id="timerDisplay" class="timer-display hidden">
+        <div id="currentTime" class="current-time"></div>
+        <input type="text" id="currentDetail" placeholder="現在計測中の詳細を入力" class="detail-input">
+      </div>
+      
+      <div class="list-container">
+        <ul id="timeboxList" class="timebox-list">
+          <li class="empty-message">ラップボタンを押して記録を開始しましょう</li>
+        </ul>
+      </div>
+      
+      <button id="lapButton" class="lap-button">スタート</button>
+    </div>
+    
+    <!-- タイムライン表示画面 -->
+    <div id="timelineView" class="view-container hidden">
+      <div class="timeline-header">
+        <div class="date-navigation">
+          <button id="prevDay" class="nav-button">←</button>
+          <div id="currentDate" class="current-date">今日</div>
+          <button id="nextDay" class="nav-button">→</button>
+        </div>
+        <button id="todayButton" class="today-button">今日</button>
+      </div>
+      
+      <div class="timeline-stats">
+        <div id="dailyStats" class="daily-stats">
+          <span>総計測時間: <strong id="totalTime">0分</strong></span>
+          <span>記録数: <strong id="totalRecords">0件</strong></span>
+        </div>
+      </div>
+      
+      <div class="timeline-container">
+        <div id="timelineContent" class="timeline-content">
+          <div class="timeline-empty">この日の記録はありません</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div id="splash" class="splash-screen">
+    <div class="splash-logo">タイムボックス Pro</div>
+    <div class="splash-spinner"></div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    // Service Workerの登録
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js').then(registration => {
+          console.log('ServiceWorker登録成功:', registration.scope);
+        }).catch(error => {
+          console.log('ServiceWorker登録失敗:', error);
+        });
+      });
+    }
+    
+    // スプラッシュスクリーンを表示
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const splash = document.getElementById('splash');
+        splash.style.opacity = '0';
+        setTimeout(() => {
+          splash.style.display = 'none';
+        }, 500);
+      }, 1000);
+    });
+  </script>
+</body>
+</html>
