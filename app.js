@@ -1,4 +1,4 @@
-// タイムボックスアプリ v2 JavaScript
+// タイムボックスアプリ v2 JavaScript（自動復旧機能付き）
 
 // アプリの状態
 let timeboxes = [];
@@ -37,9 +37,66 @@ const totalRecordsEl = document.getElementById('totalRecords');
 // 初期化
 function init() {
   loadTimeboxes();
+  checkForInterruptedTimer();
   setupEventListeners();
   renderCurrentView();
   updateClearButtonVisibility();
+}
+
+// 中断されたタイマーのチェック
+function checkForInterruptedTimer() {
+  const savedTimerState = localStorage.getItem('timerState');
+  if (savedTimerState) {
+    try {
+      const timerState = JSON.parse(savedTimerState);
+      const now = new Date();
+      const lastStartTime = new Date(timerState.startTime);
+      const lastDetail = timerState.detail || '';
+      
+      // 5分以上前の記録の場合のみ復旧オプションを表示
+      const timeSinceStart = now - lastStartTime;
+      if (timeSinceStart > 5 * 60 * 1000) { // 5分以上
+        showRecoveryDialog(lastStartTime, lastDetail, now);
+      } else {
+        // 5分以内の場合は自動的に継続
+        resumeTimer(lastStartTime, lastDetail);
+      }
+    } catch (e) {
+      console.error('タイマー状態の復元に失敗しました', e);
+      localStorage.removeItem('timerState');
+    }
+  }
+}
+
+// 復旧ダイアログの表示
+function showRecoveryDialog(lastStartTime, lastDetail, currentTime) {
+  const timeDiff = currentTime - lastStartTime;
+  const diffMinutes = Math.floor(timeDiff / (60 * 1000));
+  const startTimeStr = formatTime(lastStartTime);
+  
+  const message = `計測が中断されました。\n${startTimeStr}から継続しますか？\n（約${diffMinutes}分前）`;
+  
+  if (confirm(message)) {
+    resumeTimer(lastStartTime, lastDetail);
+  } else {
+    // 復旧を拒否した場合、保存された状態をクリア
+    localStorage.removeItem('timerState');
+  }
+}
+
+// タイマーの復旧
+function resumeTimer(lastStartTime, lastDetail) {
+  isRunning = true;
+  startTime = lastStartTime;
+  currentTime = new Date();
+  currentDetail = lastDetail;
+  
+  lapButton.textContent = 'ラップ';
+  timerDisplay.classList.remove('hidden');
+  currentDetailEl.value = currentDetail;
+  
+  startTimer();
+  updateTimerDisplay();
 }
 
 // データの読み込み
@@ -64,12 +121,27 @@ function saveTimeboxes() {
   localStorage.setItem('timeboxes', JSON.stringify(timeboxes));
 }
 
+// タイマー状態の保存
+function saveTimerState() {
+  if (isRunning && startTime) {
+    const timerState = {
+      startTime: startTime.toISOString(),
+      detail: currentDetail,
+      timestamp: new Date().toISOString()
+    };
+    localStorage.setItem('timerState', JSON.stringify(timerState));
+  } else {
+    localStorage.removeItem('timerState');
+  }
+}
+
 // イベントリスナーのセットアップ
 function setupEventListeners() {
   // 既存のイベントリスナー
   lapButton.addEventListener('click', handleLapClick);
   currentDetailEl.addEventListener('input', (e) => {
     currentDetail = e.target.value;
+    saveTimerState(); // 詳細変更時にも状態を保存
   });
   searchInput.addEventListener('input', renderTimeboxes);
   clearButton.addEventListener('click', clearAll);
@@ -82,6 +154,18 @@ function setupEventListeners() {
   prevDayButton.addEventListener('click', () => changeDate(-1));
   nextDayButton.addEventListener('click', () => changeDate(1));
   todayButton.addEventListener('click', goToToday);
+
+  // ページを離れる前に状態を保存
+  window.addEventListener('beforeunload', () => {
+    saveTimerState();
+  });
+
+  // ページが非表示になる時に状態を保存
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      saveTimerState();
+    }
+  });
 }
 
 // ビュー切り替え
@@ -120,6 +204,7 @@ function handleLapClick() {
     lapButton.textContent = 'ラップ';
     timerDisplay.classList.remove('hidden');
     startTimer();
+    saveTimerState();
   } else {
     // ラップを記録
     const newTimebox = {
@@ -136,6 +221,7 @@ function handleLapClick() {
     currentDetailEl.value = '';
     renderCurrentView();
     updateClearButtonVisibility();
+    saveTimerState();
   }
 }
 
@@ -144,6 +230,10 @@ function startTimer() {
   timer = setInterval(() => {
     currentTime = new Date();
     updateTimerDisplay();
+    // 30秒ごとに状態を保存
+    if (Math.floor(currentTime.getTime() / 1000) % 30 === 0) {
+      saveTimerState();
+    }
   }, 100);
 }
 
@@ -423,6 +513,7 @@ function clearAll() {
   if (confirm('すべての記録を削除しますか？')) {
     timeboxes = [];
     localStorage.removeItem('timeboxes');
+    localStorage.removeItem('timerState');
     renderCurrentView();
     updateClearButtonVisibility();
   }
